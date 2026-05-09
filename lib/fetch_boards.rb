@@ -9,32 +9,111 @@ require_relative 'extensions'
 
 
 class FetchBoards
-  def run
-    username = $flags.get(:user) || 'example_user'
-    cookie_file = $flags.get(:cookie_file) || 'curl.txt'
-    partition = $flags.get(:partition) || Date.today.strftime('%Y-%m-%d')
+  def each_board
+    return enum_for(:each_board) unless block_given?
 
-    abort("Cookie file not found: #{cookie_file}") unless File.exist?(cookie_file)
-    cookie = read_cookie(cookie_file)
-    abort("Cookie content is empty in #{cookie_file}") if cookie.empty?
-
-    cache_dir = '.cache'
-    FileUtils.mkdir_p(cache_dir)
-    cache = Cache.new(File.join(cache_dir, 'response_cache.sqlite'), partition)
-    key = "boards:#{username}"
-    body = cache.fetch(key) do
-      puts "Downloading #{key}"
-      fetch_boards(username, cookie)
+    each_board_page do |data|
+      data.resource_response.data.each do |each|
+        yield each
+      end
     end
+  end
 
-    body
+  def each_pin
+    return enum_for(:each_pin) unless block_given?
+
+    each_board do |board|
+      each_board_pin_page(board) do |data|
+        data.resource_response.data.each do |each|
+          yield each
+        end
+      end
+    end
+  end
+
+  def get_boards_data
+    @data ||= JSON.parse(self.get_boards_json)
+  end
+
+  def get_boards_json(bookmark = nil)
+    key = ['boards', get_username, bookmark].compact.join(':')
+    get_cache.fetch(key) do
+      puts "Downloading #{key}"
+      fetch_boards(get_username, bookmark, get_cookie)
+    end
   end
 
   private
 
+  def each_board_page
+    bookmark = nil
+
+    loop do
+      data = JSON.parse(get_boards_json(bookmark))
+      yield data
+
+      bookmark = get_bookmark(data)
+      break if !bookmark || bookmark == '-end-'
+    end
+  end
+
+  def each_board_pin_page(board)
+    bookmark = nil
+
+    loop do
+      data = JSON.parse(get_board_pins_json(board, bookmark))
+      yield data
+
+      bookmark = get_bookmark(data)
+      break if !bookmark || bookmark == '-end-'
+    end
+  end
+
+  def get_board_pins_json(board, bookmark)
+    key = ['pins', board['id'], bookmark].compact.join(':')
+    get_cache.fetch(key) do
+      puts "Downloading #{key}"
+      fetch_board_pins(board, bookmark, get_cookie)
+    end
+  end
+
+  def get_cache
+    @cache ||= begin
+      cache_dir = '.cache'
+      partition = $flags.get(:partition) || Date.today.strftime('%Y-%m-%d')
+      FileUtils.mkdir_p(cache_dir)
+      Cache.new(File.join(cache_dir, 'response_cache.sqlite'), partition)
+    end
+  end
+
+  def get_cookie
+    @cookie ||= read_cookie(get_cookie_file)
+  end
+
+  def get_cookie_file
+    @cookie_file ||= begin
+      file = $flags.get(:cookie_file) || 'default_curl.txt'
+      abort("Cookie file not found: #{file}") unless File.exist?(file)
+      file
+    end
+  end
+
+  def get_username
+    @username ||= begin
+      username = read_username(get_cookie_file)
+      abort("Could not detect username in #{get_cookie_file}") unless username
+      username
+    end
+  end
+
+  def get_bookmark(data)
+    data.dig('resource', 'options', 'bookmarks')&.first ||
+      data.dig('resource_response', 'bookmark')
+  end
+
   def read_cookie(file)
     text = File.read(file).strip
-    return text if text.empty?
+    abort("Cookie content is empty in #{file}") if text.empty?
 
     text.match(/(?:^|\s)-(?:b|--cookie)\s+(['"])(.*?)\1/m)&.captures&.last || text
   end
@@ -43,7 +122,12 @@ class FetchBoards
     cookie.split(';').map(&:strip).find { |piece| piece.start_with?('csrftoken=') }&.split('=', 2)&.last
   end
 
-  def fetch_boards(username, cookie)
+  def read_username(file)
+    text = File.read(file)
+    text[/%22username%22%3A%22([^%]+)%22/, 1]
+  end
+
+  def fetch_boards(username, bookmark, cookie)
     csrf = read_csrf(cookie)
     uri = URI('https://www.pinterest.com/resource/BoardsResource/get/')
     options = {
@@ -58,6 +142,7 @@ class FetchBoards
       redux_normalize_feed: true,
       filter_all_pins: true,
     }
+    options[:bookmarks] = [bookmark] if bookmark
 
     params = {
       source_url: "/#{username}/",
@@ -77,6 +162,51 @@ class FetchBoards
       'x-pinterest-appstate' => 'active',
       'x-pinterest-pws-handler' => 'www/[username].js',
       'x-pinterest-source-url' => "/#{username}/",
+      'x-requested-with' => 'XMLHttpRequest',
+    }.each { |name, value| request[name] = value }
+    request['x-csrftoken'] = csrf if csrf && !csrf.empty?
+
+    Net::HTTP.start(uri.hostname, uri.port, use_ssl: true) do |http|
+      response = http.request(request)
+      puts "HTTP #{response.code}"
+      response.body
+    end
+  end
+
+  def fetch_board_pins(board, bookmark, cookie)
+    csrf = read_csrf(cookie)
+    uri = URI('https://www.pinterest.com/resource/BoardFeedResource/get/')
+    options = {
+      board_id: board['id'],
+      board_url: board['url'],
+      currentFilter: -1,
+      field_set_key: 'react_grid_pin',
+      filter_section_pins: true,
+      sort: 'default',
+      layout: 'default',
+      page_size: 25,
+      redux_normalize_feed: true,
+    }
+    options[:bookmarks] = [bookmark] if bookmark
+
+    params = {
+      source_url: board['url'],
+      data: { options: options, context: {} }.to_json,
+      _: (Time.now.to_f * 1000).to_i,
+    }
+    uri.query = URI.encode_www_form(params)
+
+    request = Net::HTTP::Get.new(uri)
+    {
+      'accept' => 'application/json, text/javascript, */*, q=0.01',
+      'accept-language' => 'en-US,en;q=0.9',
+      'cookie' => cookie,
+      'referer' => 'https://www.pinterest.com/',
+      'user-agent' => 'Mozilla/5.0',
+      'x-app-version' => 'a9c2b33',
+      'x-pinterest-appstate' => 'active',
+      'x-pinterest-pws-handler' => 'www/[username]/[slug].js',
+      'x-pinterest-source-url' => board['url'],
       'x-requested-with' => 'XMLHttpRequest',
     }.each { |name, value| request[name] = value }
     request['x-csrftoken'] = csrf if csrf && !csrf.empty?
