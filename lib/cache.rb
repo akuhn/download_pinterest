@@ -1,4 +1,5 @@
-require "sqlite3"
+require %(sqlite3)
+
 
 class Cache
   def initialize(path, partition)
@@ -9,16 +10,14 @@ class Cache
       CREATE TABLE IF NOT EXISTS cache (
         partition TEXT,
         key TEXT,
-        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-        content BLOB
+        content BLOB,
+        timestamp DATETIME DEFAULT current_timestamp
       )
     }
 
-    migrate_partition_schema!
-
     @db.execute %{
-      CREATE INDEX IF NOT EXISTS cache_partition_key_timestamp
-      ON cache(partition, key, timestamp)
+      CREATE INDEX IF NOT EXISTS cache_partition_key
+      ON cache(partition, key)
     }
   end
 
@@ -26,7 +25,7 @@ class Cache
     raise unless block_given?
 
     row = @db.get_first_row(
-      "SELECT content FROM cache WHERE partition = ? AND key = ? ORDER BY timestamp DESC LIMIT 1",
+      'SELECT content FROM cache WHERE partition = ? AND key = ? ORDER BY timestamp DESC LIMIT 1',
       [@partition, key]
     )
 
@@ -36,7 +35,7 @@ class Cache
     content = yield
 
     @db.execute(
-      "INSERT INTO cache (partition, key, content) VALUES (?, ?, ?)",
+      'INSERT INTO cache (partition, key, content) VALUES (?, ?, ?)',
       [@partition, key, content]
     )
 
@@ -45,7 +44,7 @@ class Cache
 
   def most_recent_content(key)
     row = @db.get_first_row(
-      "SELECT content FROM cache WHERE key = ? AND content != ? ORDER BY timestamp DESC LIMIT 1",
+      'SELECT content FROM cache WHERE key = ? AND content != ? ORDER BY timestamp DESC LIMIT 1',
       [key, %(__marked_as_stale_cache_entry__)]
     )
 
@@ -54,14 +53,14 @@ class Cache
 
   def mark_as_stale(key)
     @db.execute(
-      "INSERT INTO cache (partition, key, content) VALUES (?, ?, ?)",
+      'INSERT INTO cache (partition, key, content) VALUES (?, ?, ?)',
       [@partition, key, %(__marked_as_stale_cache_entry__)]
     )
   end
 
   def delete(key)
     @db.execute(
-      "DELETE FROM cache WHERE partition = ? AND key = ?",
+      'DELETE FROM cache WHERE partition = ? AND key = ?',
       [@partition, key]
     )
   end
@@ -79,19 +78,9 @@ class Cache
 
   def drop_partition!(partition)
     @db.execute(
-      "DELETE FROM cache WHERE partition = ?",
+      'DELETE FROM cache WHERE partition = ?',
       [partition]
     )
     @db.changes
-  end
-
-  private
-
-  def migrate_partition_schema!
-    columns = @db.execute("PRAGMA table_info(cache)")
-    return if columns.any? { |column| column[1] == "partition" }
-
-    @db.execute("ALTER TABLE cache ADD COLUMN partition TEXT")
-    @db.execute("UPDATE cache SET partition = ? WHERE partition IS NULL", "legacy")
   end
 end
