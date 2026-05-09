@@ -20,7 +20,7 @@ end
 __END__
 Fetch user boards from Pinterest.
 
-Usage: fetch_boards.rb [options] [cookie_file]
+Usage: boards.rb [options] [cookie_file]
 
 Options:
   -p, --partition PARTITION     Cache partition name

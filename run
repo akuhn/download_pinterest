@@ -1,0 +1,19 @@
+#!/usr/bin/env -S bundle exec ruby
+
+subcommands = Dir.children(__dir__)
+  .grep(/\.rb$/)
+  .map { |path| path.delete_suffix ".rb" }
+  .sort
+
+argument = ARGV.shift&.delete_suffix ".rb"
+subcommand = subcommands.find { |each| argument && each.start_with?(argument) }
+
+unless subcommand
+  warn 'Usage: pp <subcommand> [args]'
+  warn
+  warn 'Subcommands:'
+  subcommands.each { |name| warn "  #{name}" }
+  exit 1
+end
+
+exec Gem.ruby, File.join(__dir__, "#{subcommand}.rb"), *ARGV

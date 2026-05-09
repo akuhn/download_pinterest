@@ -2,3 +2,5 @@ curl.txt
 example.json
 .cache/
 default_curl.txt
+.DS_Store
+images/
