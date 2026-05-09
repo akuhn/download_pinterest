@@ -1,0 +1,7 @@
+- Copy list and drop partition from grok_v2
+- Copy the --trash command from grok_v2
+- Add a command to delete pins from the command line (eg those marked with a certain label color, or just simply those delete locally)
+- Add --user option, picking different cookie files, still all files go to the same download folder as the random command will filter by users
+- Add forms of incremental download
+- Have codex write a lil readme file
+- Rename command in other repos also to run

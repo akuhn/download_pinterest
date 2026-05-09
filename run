@@ -9,7 +9,7 @@ argument = ARGV.shift&.delete_suffix ".rb"
 subcommand = subcommands.find { |each| argument && each.start_with?(argument) }
 
 unless subcommand
-  warn 'Usage: pp <subcommand> [args]'
+  warn 'Usage: run <subcommand> [args]'
   warn
   warn 'Subcommands:'
   subcommands.each { |name| warn "  #{name}" }
