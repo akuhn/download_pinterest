@@ -10,32 +10,25 @@ require_relative 'lib/fetch_boards'
 
 $flags = OptionsByExample.read(DATA).parse(ARGV)
 
-resolution = $flags.get(:resolution) || '736x'
+resolution = $flags.get(:resolution)
 resolutions = %w(orig 736x 474x 236x 170x 136x136)
-resolutions = resolutions.drop_while { |each| each != resolution }
+resolutions = resolutions.drop_while { it != resolution }
 fail "Unknown resolution: #{resolution}" if resolutions.empty?
 
 
 pins = []
 pinterest = FetchBoards.new
-pinterest.each_pin.map do |each_pin|
-  url = resolutions.lazy.map { |each| each_pin.dig('images', each, 'url') }.find(&:itself)
+pinterest.each_pin do |each_pin|
+  url = resolutions.filter_map { each_pin.dig('images', it, 'url') }.first
+  puts url if $flags.include?(:fetch)
   pins << [each_pin, url] if url
 end
 
-pins = pins.shuffle
-
-$flags.if_present(:limit) do |num|
-  pins = pins.first(num)
-end
-
-
-if $flags.include?(:fetch)
-  pins.each do |each_pin, url_with_selected_resolution|
-    puts url_with_selected_resolution
-  end
-else
+unless $flags.include?(:fetch)
   FileUtils.mkdir_p('images')
+
+  pins = pins.shuffle
+  $flags.if_present(:limit) { pins = pins.first(it) }
 
   pins.each do |each_pin, url_with_selected_resolution|
     uri = URI(url_with_selected_resolution)
