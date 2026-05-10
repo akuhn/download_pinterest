@@ -7,7 +7,7 @@ require_relative 'cache'
 require_relative 'extensions'
 
 
-class FetchBoards
+class Client
   attr_reader :cache
 
   def initialize(cache_fname, partition = Date.today.iso8601)
@@ -46,6 +46,13 @@ class FetchBoards
       puts "Cursor #{key}"
       fetch_boards(get_username, bookmark, get_cookie)
     end
+  end
+
+  def delete_pin(id)
+    response = fetch_pin_deletion(id, get_cookie)
+    abort "ERR: could not delete pin #{id} (code #{response.code})" unless response.is_a?(Net::HTTPSuccess)
+
+    response
   end
 
   private
@@ -211,6 +218,37 @@ class FetchBoards
       response = http.request(request)
       puts "HTTP #{response.code}"
       response.body
+    end
+  end
+
+  def fetch_pin_deletion(id, cookie)
+    csrf = read_csrf(cookie)
+    uri = URI('https://www.pinterest.com/resource/PinResource/delete/')
+    source_url = "/pin/#{id}/"
+
+    request = Net::HTTP::Post.new(uri)
+    request.body = URI.encode_www_form(
+      source_url: source_url,
+      data: { options: { id: id }, context: {} }.to_json
+    )
+    {
+      'accept' => 'application/json, text/javascript, */*, q=0.01',
+      'accept-language' => 'en-US,en;q=0.9',
+      'content-type' => 'application/x-www-form-urlencoded',
+      'cookie' => cookie,
+      'origin' => 'https://www.pinterest.com',
+      'referer' => 'https://www.pinterest.com/',
+      'user-agent' => 'Mozilla/5.0',
+      'x-app-version' => 'a9c2b33',
+      'x-pinterest-appstate' => 'active',
+      'x-pinterest-pws-handler' => 'www/pin/[id].js',
+      'x-pinterest-source-url' => source_url,
+      'x-requested-with' => 'XMLHttpRequest',
+    }.each { |name, value| request[name] = value }
+    request['x-csrftoken'] = csrf if csrf && !csrf.empty?
+
+    Net::HTTP.start(uri.hostname, uri.port, use_ssl: true) do |http|
+      http.request(request)
     end
   end
 

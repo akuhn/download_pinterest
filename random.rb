@@ -1,20 +1,21 @@
 #!/usr/bin/env ruby
 require %(options_by_example)
 
-require_relative 'lib/fetch_boards'
+require_relative 'lib/client'
 
 
 $flags = OptionsByExample.read(DATA).parse(ARGV)
 
 
 paths = []
-pinterest = FetchBoards.new('.response_cache.sqlite', $flags.get(:partition))
+pinterest = Client.new('.response_cache.sqlite', $flags.get(:partition))
 pinterest.each_pin.map do |each_pin|
   fname = File.join('images', "#{each_pin['id']}.jpg")
   paths << fname if File.exist?(fname)
 end
 
 paths.sample($flags.get :limit).each do |each|
+  puts each
   system('open', each)
 end
 

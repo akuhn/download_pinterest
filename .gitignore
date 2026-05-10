@@ -3,3 +3,5 @@ example.json
 default_curl.txt
 .DS_Store
 images/
+.response_cache.sqlite
+.cache/

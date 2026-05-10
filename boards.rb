@@ -2,12 +2,12 @@
 require %(json)
 require %(options_by_example)
 
-require_relative 'lib/fetch_boards'
+require_relative 'lib/client'
 
 
 $flags = OptionsByExample.read(DATA).parse(ARGV)
 
-pinterest = FetchBoards.new('.response_cache.sqlite', $flags.get(:partition))
+pinterest = Client.new('.response_cache.sqlite', $flags.get(:partition))
 pinterest.each_board do |each|
   puts "#{each['pin_count'].to_s.rjust(8)}  #{each['name']}"
 end

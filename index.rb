@@ -1,12 +1,12 @@
 #!/usr/bin/env ruby
 require %(options_by_example)
 
-require_relative 'lib/fetch_boards'
+require_relative 'lib/client'
 
 
 $flags = OptionsByExample.read(DATA).parse(ARGV)
 
-pinterest = FetchBoards.new('.response_cache.sqlite', $flags.get(:partition))
+pinterest = Client.new('.response_cache.sqlite', $flags.get(:partition))
 
 if $flags.include_list_partitions?
   puts pinterest.cache.list_partitions

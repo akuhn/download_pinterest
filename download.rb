@@ -5,7 +5,7 @@ require %(net/http)
 require %(options_by_example)
 require %(uri)
 
-require_relative 'lib/fetch_boards'
+require_relative 'lib/client'
 
 
 $flags = OptionsByExample.read(DATA).parse(ARGV)
@@ -17,7 +17,7 @@ fail "Unknown resolution: #{resolution}" if resolutions.empty?
 
 
 pins = []
-pinterest = FetchBoards.new('.response_cache.sqlite', $flags.get(:partition))
+pinterest = Client.new('.response_cache.sqlite', $flags.get(:partition))
 pinterest.each_pin do |each_pin|
   url = resolutions.filter_map { each_pin.dig('images', it, 'url') }.first
   puts url if $flags.include?(:fetch)
