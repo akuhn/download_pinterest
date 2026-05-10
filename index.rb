@@ -1,5 +1,7 @@
 #!/usr/bin/env ruby
+require %(fileutils)
 require %(options_by_example)
+require %(set)
 
 require_relative 'lib/client'
 
@@ -16,6 +18,19 @@ end
 if $flags.include_drop_partition?
   dropped_entries = pinterest.cache.drop_partition!($flags.get :drop_partition)
   puts "dropped #{dropped_entries} entries from partition #{$flags.get(:drop_partition)}"
+  exit
+end
+
+if $flags.include_trash?
+  pin_ids = pinterest.each_pin.map { it['id'] }.to_set
+  Dir.glob('images/**/*')
+    .select { File.file?(it) }
+    .reject { pin_ids.include?(File.basename(it, %(.*))) }
+    .sort
+    .each do |path|
+      puts path
+      FileUtils.mv(path, File.expand_path('~/.Trash')) unless $flags.include_dry?
+    end
   exit
 end
 
@@ -45,4 +60,6 @@ Usage: index.rb [options] [cookie_file]
 Options:
   -l, --list-partitions         Print known cache partitions and exit
   -D, --drop-partition NAME     Delete entries for given partition and exit
+      --trash                   Move unreferenced downloaded files to macOS trash
+      --dry                     Print trash candidates without moving them
   -p, --partition PARTITION     Cache partition name
