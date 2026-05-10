@@ -1,5 +1,4 @@
 require %(date)
-require %(fileutils)
 require %(json)
 require %(net/http)
 require %(uri)
@@ -9,6 +8,12 @@ require_relative 'extensions'
 
 
 class FetchBoards
+  attr_reader :cache
+
+  def initialize(cache_fname, partition = Date.today.iso8601)
+    @cache = Cache.new(cache_fname, partition || Date.today.iso8601)
+  end
+
   def each_board
     return enum_for(:each_board) unless block_given?
 
@@ -37,8 +42,8 @@ class FetchBoards
 
   def get_boards_json(bookmark = nil)
     key = ['boards', get_username, bookmark].compact.join(':')
-    get_cache.fetch(key) do
-      puts "Downloading #{key}"
+    cache.fetch(key) do
+      puts "Cursor #{key}"
       fetch_boards(get_username, bookmark, get_cookie)
     end
   end
@@ -71,18 +76,9 @@ class FetchBoards
 
   def get_board_pins_json(board, bookmark)
     key = ['pins', board['id'], bookmark].compact.join(':')
-    get_cache.fetch(key) do
-      puts "Downloading #{key}"
+    cache.fetch(key) do
+      puts "Cursor #{key}"
       fetch_board_pins(board, bookmark, get_cookie)
-    end
-  end
-
-  def get_cache
-    @cache ||= begin
-      cache_dir = '.cache'
-      partition = $flags.get(:partition) || Date.today.strftime('%Y-%m-%d')
-      FileUtils.mkdir_p(cache_dir)
-      Cache.new(File.join(cache_dir, 'response_cache.sqlite'), partition)
     end
   end
 

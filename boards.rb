@@ -7,7 +7,7 @@ require_relative 'lib/fetch_boards'
 
 $flags = OptionsByExample.read(DATA).parse(ARGV)
 
-pinterest = FetchBoards.new
+pinterest = FetchBoards.new('.response_cache.sqlite', $flags.get(:partition))
 pinterest.each_board do |each|
   puts "#{each['pin_count'].to_s.rjust(8)}  #{each['name']}"
 end

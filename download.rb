@@ -17,7 +17,7 @@ fail "Unknown resolution: #{resolution}" if resolutions.empty?
 
 
 pins = []
-pinterest = FetchBoards.new
+pinterest = FetchBoards.new('.response_cache.sqlite', $flags.get(:partition))
 pinterest.each_pin do |each_pin|
   url = resolutions.filter_map { each_pin.dig('images', it, 'url') }.first
   puts url if $flags.include?(:fetch)

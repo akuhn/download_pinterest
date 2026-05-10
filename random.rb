@@ -8,7 +8,7 @@ $flags = OptionsByExample.read(DATA).parse(ARGV)
 
 
 paths = []
-pinterest = FetchBoards.new
+pinterest = FetchBoards.new('.response_cache.sqlite', $flags.get(:partition))
 pinterest.each_pin.map do |each_pin|
   fname = File.join('images', "#{each_pin['id']}.jpg")
   paths << fname if File.exist?(fname)
