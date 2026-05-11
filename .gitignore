@@ -5,3 +5,4 @@ default_curl.txt
 images/
 .response_cache.sqlite
 .cache/
+NOTES.md

@@ -10,7 +10,8 @@ require_relative 'extensions'
 class Client
   attr_reader :cache
 
-  def initialize(cache_fname, partition = Date.today.iso8601)
+  def initialize(cache_fname, partition = Date.today.iso8601, offline: false)
+    @offline = offline
     @cache = Cache.new(cache_fname, partition || Date.today.iso8601)
   end
 
@@ -42,7 +43,7 @@ class Client
 
   def get_boards_json(bookmark = nil)
     key = ['boards', get_username, bookmark].compact.join(':')
-    cache.fetch(key) do
+    cache_fetch_unless_offline_mode_then_fail(key) do
       puts "Cursor #{key}"
       fetch_boards(get_username, bookmark, get_cookie)
     end
@@ -83,7 +84,7 @@ class Client
 
   def get_board_pins_json(board, bookmark)
     key = ['pins', board['id'], bookmark].compact.join(':')
-    cache.fetch(key) do
+    cache_fetch_unless_offline_mode_then_fail(key) do
       puts "Cursor #{key}"
       fetch_board_pins(board, bookmark, get_cookie)
     end
@@ -249,6 +250,14 @@ class Client
 
     Net::HTTP.start(uri.hostname, uri.port, use_ssl: true) do |http|
       http.request(request)
+    end
+  end
+
+  def cache_fetch_unless_offline_mode_then_fail(key)
+    cache.fetch(key) do
+      abort "Cache miss in offline mode: #{key}" if @offline
+
+      yield
     end
   end
 
