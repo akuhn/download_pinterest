@@ -136,7 +136,7 @@ class Client
     uri = URI('https://www.pinterest.com/resource/BoardsResource/get/')
     options = {
       username: username,
-      page_size: 25,
+      page_size: 250,
       sort: 'last_pinned_to',
       privacy_filter: 'all',
       field_set_key: 'profile_grid_item',
@@ -188,7 +188,7 @@ class Client
       filter_section_pins: true,
       sort: 'default',
       layout: 'default',
-      page_size: 25,
+      page_size: 250,
       redux_normalize_feed: true,
     }
     options[:bookmarks] = [bookmark] if bookmark
