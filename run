@@ -16,4 +16,4 @@ unless subcommand
   exit 1
 end
 
-exec Gem.ruby, File.join(__dir__, "#{subcommand}.rb"), *ARGV
+exec Gem.ruby, "#{__dir__}/#{subcommand}.rb", *ARGV

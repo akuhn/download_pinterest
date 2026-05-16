@@ -10,9 +10,9 @@ require_relative 'extensions'
 class Client
   attr_reader :cache
 
-  def initialize(cache_fname, partition = Date.today.iso8601, offline: false)
+  def initialize(cache_fname, partition, offline: false)
     @offline = offline
-    @cache = Cache.new(cache_fname, partition || Date.today.iso8601)
+    @cache = Cache.new(cache_fname, partition)
   end
 
   def each_board

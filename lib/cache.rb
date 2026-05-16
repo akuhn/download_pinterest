@@ -1,10 +1,13 @@
+require %(date)
 require %(sqlite3)
 
 
 class Cache
+  attr_reader :partition
+
   def initialize(path, partition)
-    @partition = partition
     @db = SQLite3::Database.new(path)
+    @partition = handle_today_and_yesterday(partition)
 
     @db.execute %{
       CREATE TABLE IF NOT EXISTS cache (
@@ -25,7 +28,7 @@ class Cache
     raise unless block_given?
 
     row = @db.get_first_row(
-      'SELECT content FROM cache WHERE partition = ? AND key = ? ORDER BY timestamp DESC LIMIT 1',
+      'SELECT content FROM cache WHERE partition = ? AND key = ? ORDER BY timestamp DESC, rowid DESC LIMIT 1',
       [@partition, key]
     )
 
@@ -82,5 +85,23 @@ class Cache
       [partition]
     )
     @db.changes
+  end
+
+  def count_cached_responses
+    @db.get_first_value('SELECT COUNT(*) FROM cache').to_i
+  end
+
+  private
+
+  def handle_today_and_yesterday(partition)
+    today = Date.today.iso8601
+
+    return today unless partition
+    return partition unless partition == :yesterday
+
+    list_partitions
+      .select { /\A\d{4}-\d{2}-\d{2}\z/.match?(_1) }
+      .reject { _1 == today }
+      .max
   end
 end

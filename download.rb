@@ -34,7 +34,8 @@ unless $flags.include?(:fetch)
     uri = URI(url_with_selected_resolution)
     extension = File.extname(uri.path)
     extension = '.jpg' if extension.empty?
-    path = File.join('images', "#{each_pin['id']}#{extension}")
+    path = "images/#{each_pin['id']}#{extension}"
+    next if File.exist?(path)
 
     puts "Downloading #{path}..."
     response = Net::HTTP.get_response(uri)

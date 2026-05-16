@@ -34,22 +34,33 @@ if $flags.include_trash?
   exit
 end
 
-size = 0
 downloaded = 0
 total = 0
+files = Dir.glob('images/**/*').select { File.file?(it) }
+indexed_files = files.to_set
+files_by_id = Hash.new { |hash, key| hash[key] = [] }
+files.each { |path| files_by_id[File.basename(path, %(.*))] << path }
 
 pinterest.each_pin do |each_pin|
-  fname = File.join('images', "#{each_pin['id']}.jpg")
-  if File.exist?(fname)
-    size += File.size(fname)
-    downloaded += 1
-  end
+  paths = files_by_id[each_pin['id']]
+  paths.each { indexed_files.delete(it) }
+  downloaded += 1 if paths.any?
   total += 1
 end
 
-puts "size: #{(size / 1024.0 / 1024).round(2)} MB"
-puts "downloaded: #{downloaded} (#{100 * downloaded / total}%)"
-puts "total: #{total}"
+not_indexed_files = indexed_files.to_a.sort
+size = files.sum { File.size(it) }
+size_mb = size / 1024.0 / 1024.0
+downloaded_percent = total.zero? ? 0 : 100 * downloaded / total
+
+puts "pins: #{total}"
+puts "downloaded images: #{downloaded} (#{downloaded_percent}%)"
+puts "not-indexed images: #{not_indexed_files.length}"
+puts "cached requests: #{pinterest.cache.count_cached_responses}"
+puts "total files: #{files.length}"
+puts format('total size: %.2f MB', size_mb)
+
+not_indexed_files.each { puts it }
 
 
 __END__
